@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>CPRead</title>
+<style>
+/* ============================================================
+   CPRead — Design tokens
+   Medical/emergency theme: red = urgency/action, blue = trust/
+   calm guidance, white = clinical clarity. Dark mode + high
+   contrast variants are defined below for accessibility.
+   ============================================================ */
+:root{
+  --red:#dc2626;        --red-dark:#a41c1c;      --red-soft:#fee2e2;
+  --blue:#1d4ed8;        --blue-dark:#16309e;      --blue-soft:#dbe6fe;
+  --white:#ffffff;       --bg:#f6f8fc;             --ink:#0f172a;
+  --muted:#64748b;       --border:#e3e8f1;         --success:#16a34a;
+  --radius:16px;         --radius-sm:10px;
+  --shadow:0 8px 24px rgba(15,23,42,0.08);
+  --font-scale:1;
+}
+/* Dark mode overrides */
+body.dark{
+  --white:#151b2c; --bg:#0c1120; --ink:#f1f5f9; --muted:#94a3b8;
+  --border:#242e46; --blue-soft:#1b2a55; --red-soft:#3a1414;
+}
+/* High contrast overrides (stacks on top of light or dark) */
+body.high-contrast{
+  --border:#000000; --muted:#000000; --shadow:none;
+}
+body.high-contrast.dark{ --border:#ffffff; --muted:#e2e8f0; }
+body.high-contrast .card, body.high-contrast .nav-item{ border-width:2px !important; }
+
+*{box-sizing:border-box;}
+html{ font-size:16px; }
+html.large-text{ font-size:19px; }
+
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+  display:flex; align-items:flex-start; justify-content:center;
+  min-height:100vh; padding:24px 12px;
+  transition:background .25s ease, color .25s ease;
+}
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
+}
+
+/* ---------- Phone frame ---------- */
+.phone{
+  width:100%; max-width:400px; height:844px; max-height:92vh;
+  background:var(--white); border-radius:34px; box-shadow:var(--shadow);
+  border:1px solid var(--border); overflow:hidden; position:relative;
+  display:flex; flex-direction:column;
+}
+.statusbar{
+  height:14px; flex-shrink:0;
+}
+.app-header{
+  padding:14px 20px 10px; display:flex; align-items:center; gap:10px; flex-shrink:0;
+  border-bottom:1px solid var(--border);
+}
+.app-header .logo-img{
+  width: 1000px;px; height:90px; 
+  display:flex; align-items:center; justify-content:center;
+  color:#f5f5f5; font-weight:800; font-size:1rem;
+}
+.app-header h1{ font-size:1.15rem; margin:0; letter-spacing:.2px; }
+.app-header .page-label{ font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+
+.content{
+  flex:1; overflow-y:auto; padding:18px 18px 90px;
+  -webkit-overflow-scrolling:touch;
+}
+.page{ display:none; }
+.page.active{ display:block; animation:fadeIn .22s ease; }
+@keyframes fadeIn{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+
+/* ---------- Bottom nav ---------- */
+.tabbar{
+  position:absolute; left:0; right:0; bottom:0;
+  display:flex; background:var(--white); border-top:1px solid var(--border);
+  padding:8px 4px calc(8px + env(safe-area-inset-bottom,0));
+}
+.tab{
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+  background:none; border:none; cursor:pointer; padding:6px 2px;
+  color:var(--muted); font-size:.68rem; font-family:inherit;
+  border-radius:10px; transition:color .15s ease, background .15s ease;
+}
+.tab .icon{ font-size:1.25rem; line-height:1; }
+.tab.active{ color:var(--blue); background:var(--blue-soft); }
+
+/* ---------- Reusable bits ---------- */
+.card{
+  background:var(--white); border:1px solid var(--border); border-radius:var(--radius);
+  padding:18px; margin-bottom:16px; box-shadow:var(--shadow);
+}
+h2{ font-size:1.05rem; margin:0 0 10px; }
+p.sub{ color:var(--muted); font-size:.85rem; margin:0 0 16px; line-height:1.45; }
+
+button.primary{
+  background:var(--blue); color:#fff; border:none; border-radius:var(--radius-sm);
+  padding:13px 18px; font-size:.95rem; font-weight:600; cursor:pointer;
+  width:100%; transition:transform .08s ease, background .15s ease;
+}
+button.primary:hover{ background:var(--blue-dark); }
+button.primary:active{ transform:scale(.97); }
+button.secondary{
+  background:var(--blue-soft); color:var(--blue-dark); border:none; border-radius:var(--radius-sm);
+  padding:13px 18px; font-size:.9rem; font-weight:600; cursor:pointer; width:100%;
+}
+button.secondary:active{ transform:scale(.97); }
+button:focus-visible, .tab:focus-visible, .toggle input:focus-visible + .slider{
+  outline:3px solid var(--blue); outline-offset:2px;
+}
+
+.emergency-btn{
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  width:100%; background:var(--red); color:#fff; border:none;
+  padding:20px; border-radius:var(--radius); font-size:1.1rem; font-weight:800;
+  cursor:pointer; box-shadow:0 6px 20px rgba(230, 17, 17, 0.35);
+  animation:pulse 2.2s ease-in-out infinite; text-decoration:none;
+}
+@keyframes pulse{
+  0%,100%{ box-shadow:0 6px 20px rgba(220,38,38,.35); }
+  50%{ box-shadow:0 6px 28px rgba(220,38,38,.6); }
+}
+.emergency-btn:active{ transform:scale(.98); }
+
+.quick-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
+.quick-card{
+  background:var(--white); border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:14px; text-align:left; cursor:pointer; font-family:inherit;
+}
+.quick-card .qi{ font-size:1.4rem; }
+.quick-card .qt{ font-weight:700; font-size:.85rem; margin-top:6px; }
+.quick-card .qd{ font-size:.72rem; color:var(--muted); margin-top:2px; }
+
+/* age tabs */
+.age-tabs{ display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+.age-tab{
+  flex:1; min-width:70px; padding:9px 4px; border-radius:999px; border:1px solid var(--border);
+  background:var(--white); color:var(--ink); font-size:.78rem; cursor:pointer; font-family:inherit;
+}
+.age-tab.active{ background:var(--blue); color:#fff; border-color:var(--blue); }
+
+.stat-row{ display:flex; gap:10px; margin-bottom:14px; }
+.stat{ flex:1; background:var(--blue-soft); border-radius:var(--radius-sm); padding:12px; text-align:center; }
+.stat .num{ font-weight:800; font-size:1.05rem; color:var(--blue-dark); }
+body.dark .stat .num{ color:#9db4ff; }
+.stat .lbl{ font-size:.68rem; color:var(--muted); margin-top:2px; }
+
+.steps{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.steps li{
+  display:flex; gap:12px; align-items:flex-start; background:var(--bg);
+  border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px;
+}
+.step-num{
+  flex-shrink:0; width:26px; height:26px; border-radius:50%; background:var(--red);
+  color:#fff; font-weight:700; font-size:.78rem; display:flex; align-items:center; justify-content:center;
+}
+.step-text{ font-size:.85rem; line-height:1.4; }
+
+/* tracker */
+.timer-display{
+  text-align:center; font-size:2.6rem; font-weight:800; letter-spacing:1px;
+  color:var(--blue-dark); margin:6px 0 4px; font-variant-numeric:tabular-nums;
+}
+body.dark .timer-display{ color:#9db4ff; }
+.timer-label{ text-align:center; color:var(--muted); font-size:.75rem; margin-bottom:18px; }
+
+.tap-circle{
+  width:170px; height:170px; border-radius:50%; margin:0 auto 18px;
+  background:radial-gradient(circle at 35% 30%, var(--red), var(--red-dark));
+  color:#fff; border:none; font-size:1.05rem; font-weight:800; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px;
+  box-shadow:0 10px 26px rgba(168, 38, 38, 0.35);
+  transition:transform .06s ease;
+}
+.tap-circle:active{ transform:scale(.94); }
+.tap-circle .count{ font-size:2rem; }
+.tap-circle:disabled{ opacity:.4; cursor:not-allowed; animation:none; }
+
+.metronome-row{ display:flex; align-items:center; gap:12px; margin-top:6px; }
+.metronome-row input[type=range]{ flex:1; }
+.bpm-badge{ background:var(--blue); color:#fff; font-weight:700; font-size:.8rem; padding:6px 10px; border-radius:999px; min-width:64px; text-align:center; }
+
+/* settings toggles */
+.setting-row{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 0; border-bottom:1px solid var(--border);
+}
+.setting-row:last-child{ border-bottom:none; }
+.setting-text .t{ font-size:.88rem; font-weight:600; }
+.setting-text .d{ font-size:.72rem; color:var(--muted); margin-top:2px; }
+.toggle{ position:relative; width:46px; height:26px; flex-shrink:0; }
+.toggle input{ opacity:0; width:0; height:0; }
+.slider{
+  position:absolute; inset:0; background:var(--border); border-radius:999px; cursor:pointer;
+  transition:background .2s ease;
+}
+.slider::before{
+  content:""; position:absolute; width:20px; height:20px; left:3px; top:3px;
+  background:#fff; border-radius:50%; transition:transform .2s ease; box-shadow:0 1px 3px rgba(0,0,0,.3);
+}
+.toggle input:checked + .slider{ background:var(--blue); }
+.toggle input:checked + .slider::before{ transform:translateX(20px); }
+
+input[type=text].field{
+  width:100%; padding:10px 12px; border-radius:var(--radius-sm); border:1px solid var(--border);
+  font-size:.85rem; background:var(--bg); color:var(--ink); font-family:inherit;
+}
+
+/* history */
+.session-item{
+  border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:10px;
+  background:var(--bg);
+}
+.session-top{ display:flex; justify-content:space-between; font-size:.82rem; font-weight:700; }
+.session-meta{ display:flex; gap:14px; margin-top:6px; font-size:.75rem; color:var(--muted); }
+.empty-state{ text-align:center; color:var(--muted); font-size:.85rem; padding:40px 10px; }
+
+.disclaimer{
+  font-size:.72rem; color:var(--muted); line-height:1.5; background:var(--bg);
+  border:1px dashed var(--border); border-radius:var(--radius-sm); padding:12px; margin-top:6px;
+}
+
+
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="statusbar"></div>
+
+  <div class="app-header">
+    <img src="cpread-logo.jpg" class="logo-img">
+  
+    <div>
+      <h1>CPRead</h1>
+      <div class="page-label" id="pageLabel">Home</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ================= HOME ================= -->
+    <section class="page active" id="page-home">
+      <a class="emergency-btn" id="emergencyBtn" href="tel:67
+  ">📞 Call Emergency Services</a>
+
+      <div class="quick-grid">
+        <button class="quick-card" data-goto="tracker">
+          <div class="qi">🫀</div>
+          <div class="qt">Start CPR Tracker</div>
+          <div class="qd">Time & count compressions</div>
+        </button>
+        <button class="quick-card" data-goto="guide">
+          <div class="qi">📖</div>
+          <div class="qt">CPR Guide</div>
+          <div class="qd">Steps by age group</div>
+        </button>
+        <button class="quick-card" data-goto="history">
+          <div class="qi">🕒</div>
+          <div class="qt">History</div>
+          <div class="qd">Past sessions</div>
+        </button>
+        <button class="quick-card" data-goto="settings">
+          <div class="qi">⚙️</div>
+          <div class="qt">Settings</div>
+          <div class="qd">Sound, voice, display</div>
+        </button>
+      </div>
+
+      <div class="disclaimer">
+        CPRead has been created to tackle these problems by providing realtime feedback, customizable training sessions, and performance tracking, helping both healthcare professionals and ordinary individuals learn and perfect the correct CPR techniques in a safe and controlled environment.
+      </div>
+    </section>
+
+    <!-- ================= GUIDE ================= -->
+    <section class="page" id="page-guide">
+      <div class="age-tabs" id="ageTabs">
+        <button class="age-tab active" data-age="infant">Infant</button>
+        <button class="age-tab" data-age="child">Child</button>
+        <button class="age-tab" data-age="adult">Adult</button>
+        <button class="age-tab" data-age="senior">Senior</button>
+      </div>
+
+      <div class="card">
+        <h2 id="ageTitle">Infant (0–1 year)</h2>
+        <div class="stat-row">
+          <div class="stat"><div class="num" id="statRate">100–120</div><div class="lbl">Compressions / min</div></div>
+          <div class="stat"><div class="num" id="statDepth">1.5 in</div><div class="lbl">Compression depth</div></div>
+          <div class="stat"><div class="num" id="statHR">100–160</div><div class="lbl">Normal HR (bpm)</div></div>
+        </div>
+        <button class="secondary" id="readAloudBtn">🔊 Read steps aloud</button>
+      </div>
+
+      <div class="card">
+        <h2>Step-by-step</h2>
+        <ol class="steps" id="stepsList"></ol>
+      </div>
+    </section>
+
+    <!-- ================= TRACKER ================= -->
+    <section class="page" id="page-tracker">
+      <div class="card">
+        <div class="timer-display" id="timerDisplay">00:00</div>
+        <div class="timer-label" id="timerLabel">Session not started</div>
+
+        <button class="tap-circle" id="tapBtn" disabled>
+          <span class="count" id="tapCount">0</span>
+          <span>TAP per<br>compression</span>
+        </button>
+
+        <button class="primary" id="sessionBtn">Start CPR Session</button>
+      </div>
+
+      <div class="card">
+        <h2>🎵 Metronome</h2>
+        <p class="sub">Keep pace during compressions (AHA-recommended 100–120/min).</p>
+        <div class="metronome-row">
+          <input type="range" min="100" max="120" value="110" id="bpmSlider">
+          <div class="bpm-badge" id="bpmBadge">110 bpm</div>
+        </div>
+        <button class="secondary" id="metroBtn" style="margin-top:14px;">▶ Start Metronome</button>
+      </div>
+    </section>
+
+    <!-- ================= HISTORY ================= -->
+    <section class="page" id="page-history">
+      <div class="card">
+        <h2>Session History</h2>
+        <div id="historyList"></div>
+        <button class="secondary" id="clearHistoryBtn" style="margin-top:12px;">Clear History</button>
+      </div>
+    </section>
+
+    <!-- ================= SETTINGS ================= -->
+    <section class="page" id="page-settings">
+      <div class="card">
+        <h2>Feedback</h2>
+        <div class="setting-row">
+          <div class="setting-text"><div class="t">Sound</div><div class="d">Metronome beep & taps</div></div>
+          <label class="toggle"><input type="checkbox" data-key="sound" checked><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <div class="setting-text"><div class="t">Vibration</div><div class="d">Haptic pulse on beat/tap</div></div>
+          <label class="toggle"><input type="checkbox" data-key="vibration" checked><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <div class="setting-text"><div class="t">Voice guidance</div><div class="d">Spoken cues & instructions</div></div>
+          <label class="toggle"><input type="checkbox" data-key="voice"><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <div class="setting-text"><div class="t">Notifications</div><div class="d">Session reminders (simulated)</div></div>
+          <label class="toggle"><input type="checkbox" data-key="notifications"><span class="slider"></span></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Display & accessibility</h2>
+        <div class="setting-row">
+          <div class="setting-text"><div class="t">Dark mode</div></div>
+          <label class="toggle"><input type="checkbox" data-key="dark"><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <div class="setting-text"><div class="t">High contrast</div></div>
+          <label class="toggle"><input type="checkbox" data-key="highContrast"><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <div class="setting-text"><div class="t">Large text</div></div>
+          <label class="toggle"><input type="checkbox" data-key="largeText"><span class="slider"></span></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Emergency number</h2>
+        <p class="sub">Used by the Call Emergency Services button. Default is 911
+       — change if you're outside the US.</p>
+        <input type="text" class="field" id="emergencyNumberInput" value="911
+    ">
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ================= BOTTOM NAV ================= -->
+  <nav class="tabbar">
+    <button class="tab active" data-page="home"><span class="icon">🏠</span>Home</button>
+    <button class="tab" data-page="guide"><span class="icon">📖</span>Guide</button>
+    <button class="tab" data-page="tracker"><span class="icon">🫀</span>Tracker</button>
+    <button class="tab" data-page="history"><span class="icon">🕒</span>History</button>
+    <button class="tab" data-page="settings"><span class="icon">⚙️</span>Settings</button>
+  </nav>
+</div>
+
+<script>
+/* ============================================================
+   CPRead — application logic
+   Organized into clear sections: DATA, STATE/STORAGE, NAV,
+   GUIDE, TRACKER, METRONOME, HISTORY, SETTINGS.
+   Everything is vanilla JS so it runs with zero build step.
+   ============================================================ */
+
+/* ---------------- DATA ---------------- */
+// Reference values are simplified, general public guidance
+// (in the spirit of AHA/Red Cross public materials) for an
+// educational app — not medical advice.
+const AGE_DATA = {
+  infant: {
+    title: "Infant (0–1 year)",
+    rate: "100–120", depth: "1.5 in (4 cm)", hr: "100–160",
+    steps: [
+      "Check responsiveness, tap foot, shout for help, call emergency services.",
+      "Lay the infant on a firm, flat surface, face up.",
+      "Place two fingers at the center of the chest, just below the nipple line.",
+      "Compress about 1.5 in (4 cm) deep, at 100–120 compressions per minute.",
+      "Allow full chest recoil between compressions.",
+      "If trained, give 2 gentle rescue breaths after every 30 compressions.",
+      "Continue until emergency responders arrive or the infant responds."
+    ]
+  },
+  child: {
+    title: "Child (1–8 years)",
+    rate: "100–120", depth: "2 in (5 cm)", hr: "80–120",
+    steps: [
+      "Check responsiveness and call emergency services immediately.",
+      "Lay the child on a firm, flat surface.",
+      "Place the heel of one or two hands on the center of the chest.",
+      "Compress about 2 in (5 cm) deep, at 100–120 compressions per minute.",
+      "Allow the chest to fully recoil between compressions.",
+      "If trained, give 2 breaths after every 30 compressions.",
+      "Continue until help arrives or an AED is available."
+    ]
+  },
+  adult: {
+    title: "Adult",
+    rate: "100–120", depth: "2–2.4 in (5–6 cm)", hr: "60–100",
+    steps: [
+      "Check responsiveness, call emergency services, and get an AED if possible.",
+      "Lay the person on their back on a firm surface.",
+      "Place the heel of one hand on the center of the chest, other hand on top, fingers interlaced.",
+      "Compress at least 2 in (5 cm), not exceeding 2.4 in, at 100–120/min.",
+      "Allow full chest recoil between each compression.",
+      "If trained, give 2 breaths after every 30 compressions.",
+      "Attach an AED as soon as it's available and follow its prompts."
+    ]
+  },
+  senior: {
+    title: "Senior / Older Adult",
+    rate: "100–120", depth: "~2 in (5 cm), adjust for fragility", hr: "60–100",
+    steps: [
+      "Check responsiveness and call emergency services immediately.",
+      "Lay the person on a firm, flat surface.",
+      "Use the same hand placement as for adults; be mindful of possible fragile ribs.",
+      "Compress firmly at 100–120/min — full-depth compressions are still needed even if a rib injury occurs.",
+      "Allow full chest recoil between compressions.",
+      "If trained, give 2 breaths after every 30 compressions.",
+      "Continue until help arrives; note any medications or conditions for responders."
+    ]
+  }
+};
+
+/* ---------------- STATE ---------------- */
+let settings = {
+  sound: true, vibration: true, voice: false, notifications: false,
+  dark: false, highContrast: false, largeText: false, emergencyNumber: "67"
+};
+let sessions = [];
+let currentAge = "infant";
+
+/* ---------------- STORAGE (persists across visits) ---------------- */
+async function loadData(){
+  try{
+    const s = await window.storage.get("settings");
+    if(s && s.value) settings = { ...settings, ...JSON.parse(s.value) };
+  }catch(e){ /* no saved settings yet — use defaults */ }
+  try{
+    const h = await window.storage.get("sessions");
+    if(h && h.value) sessions = JSON.parse(h.value);
+  }catch(e){ /* no saved sessions yet */ }
+  applySettingsToUI();
+  renderHistory();
+}
+async function saveSettings(){
+  try{ await window.storage.set("settings", JSON.stringify(settings)); }
+  catch(e){ console.error("Could not save settings", e); }
+}
+async function saveSessions(){
+  try{ await window.storage.set("sessions", JSON.stringify(sessions)); }
+  catch(e){ console.error("Could not save sessions", e); }
+}
+
+/* ---------------- NAVIGATION ---------------- */
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click", ()=> goTo(tab.dataset.page));
+});
+document.querySelectorAll("[data-goto]").forEach(el=>{
+  el.addEventListener("click", ()=> goTo(el.dataset.goto));
+});
+function goTo(pageId){
+  document.querySelectorAll(".tab").forEach(t=> t.classList.toggle("active", t.dataset.page === pageId));
+  document.querySelectorAll(".page").forEach(p=> p.classList.remove("active"));
+  document.getElementById("page-" + pageId).classList.add("active");
+  document.getElementById("pageLabel").textContent = pageId.charAt(0).toUpperCase() + pageId.slice(1);
+}
+
+/* ---------------- GUIDE ---------------- */
+function renderGuide(){
+  const data = AGE_DATA[currentAge];
+  document.getElementById("ageTitle").textContent = data.title;
+  document.getElementById("statRate").textContent = data.rate;
+  document.getElementById("statDepth").textContent = data.depth;
+  document.getElementById("statHR").textContent = data.hr;
+  const list = document.getElementById("stepsList");
+  list.innerHTML = "";
+  data.steps.forEach((step, i)=>{
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="step-num">${i+1}</span><span class="step-text">${step}</span>`;
+    list.appendChild(li);
+  });
+}
+document.querySelectorAll(".age-tab").forEach(tab=>{
+  tab.addEventListener("click", ()=>{
+    document.querySelectorAll(".age-tab").forEach(t=> t.classList.remove("active"));
+    tab.classList.add("active");
+    currentAge = tab.dataset.age;
+    renderGuide();
+  });
+});
+document.getElementById("readAloudBtn").addEventListener("click", ()=>{
+  speak(AGE_DATA[currentAge].steps.join(". "));
+});
+
+/* ---------------- TRACKER ---------------- */
+let tracking = false, startTime = null, timerInterval = null, compressions = 0;
+
+document.getElementById("sessionBtn").addEventListener("click", ()=>{
+  tracking ? stopSession() : startSession();
+});
+document.getElementById("tapBtn").addEventListener("click", ()=>{
+  if(!tracking) return;
+  compressions++;
+  document.getElementById("tapCount").textContent = compressions;
+  if(settings.vibration && navigator.vibrate) navigator.vibrate(30);
+});
+
+function startSession(){
+  tracking = true; startTime = Date.now(); compressions = 0;
+  document.getElementById("tapCount").textContent = "0";
+  document.getElementById("tapBtn").disabled = false;
+  document.getElementById("sessionBtn").textContent = "Stop CPR Session";
+  document.getElementById("timerLabel").textContent = "Session in progress…";
+  timerInterval = setInterval(updateTimer, 1000);
+  if(settings.voice) speak("Session started. Begin compressions now.");
+}
+function stopSession(){
+  tracking = false;
+  clearInterval(timerInterval);
+  const durationSec = Math.round((Date.now() - startTime) / 1000);
+  const avgRate = durationSec > 0 ? Math.round((compressions / durationSec) * 60) : 0;
+  sessions.unshift({
+    date: new Date().toISOString(),
+    durationSec, compressions, avgRate
+  });
+  saveSessions();
+  renderHistory();
+  document.getElementById("tapBtn").disabled = true;
+  document.getElementById("sessionBtn").textContent = "Start CPR Session";
+  document.getElementById("timerLabel").textContent = `Last session: ${formatTime(durationSec)}, ${compressions} compressions`;
+  if(settings.voice) speak("Session stopped and saved.");
+}
+function updateTimer(){
+  const elapsed = Math.round((Date.now() - startTime) / 1000);
+  document.getElementById("timerDisplay").textContent = formatTime(elapsed);
+  // gentle voice check-in every 30 seconds
+  if(settings.voice && elapsed > 0 && elapsed % 30 === 0){
+    speak("Keep going. Maintain a steady rate.");
+  }
+}
+function formatTime(totalSec){
+  const m = String(Math.floor(totalSec/60)).padStart(2,"0");
+  const s = String(totalSec%60).padStart(2,"0");
+  return `${m}:${s}`;
+}
+
+/* ---------------- METRONOME ---------------- */
+let bpm = 110, metroInterval = null, metroRunning = false, audioCtx = null;
+
+document.getElementById("bpmSlider").addEventListener("input", (e)=>{
+  bpm = Number(e.target.value);
+  document.getElementById("bpmBadge").textContent = bpm + " bpm";
+  if(metroRunning) restartMetronome();
+});
+document.getElementById("metroBtn").addEventListener("click", ()=>{
+  metroRunning ? stopMetronome() : startMetronome();
+});
+function startMetronome(){
+  metroRunning = true;
+  document.getElementById("metroBtn").textContent = "⏸ Stop Metronome";
+  metroInterval = setInterval(beep, 60000 / bpm);
+  beep();
+}
+function stopMetronome(){
+  metroRunning = false;
+  clearInterval(metroInterval);
+  document.getElementById("metroBtn").textContent = "▶ Start Metronome";
+}
+function restartMetronome(){ stopMetronome(); startMetronome(); }
+function beep(){
+  if(settings.vibration && navigator.vibrate) navigator.vibrate(40);
+  if(!settings.sound) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.frequency.value = 880;
+    gain.gain.value = 0.15;
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.08);
+  }catch(e){ /* audio unavailable — silently ignore */ }
+}
+
+/* ---------------- HISTORY ---------------- */
+function renderHistory(){
+  const list = document.getElementById("historyList");
+  if(sessions.length === 0){
+    list.innerHTML = `<div class="empty-state">No sessions yet. Start one from the Tracker tab.</div>`;
+    return;
+  }
+  list.innerHTML = "";
+  sessions.forEach(s=>{
+    const d = new Date(s.date);
+    const item = document.createElement("div");
+    item.className = "session-item";
+    item.innerHTML = `
+      <div class="session-top">
+        <span>${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
+        <span>${formatTime(s.durationSec)}</span>
+      </div>
+      <div class="session-meta">
+        <span>🫀 ${s.compressions} compressions</span>
+        <span>⚡ ~${s.avgRate}/min avg</span>
+      </div>`;
+    list.appendChild(item);
+  });
+}
+document.getElementById("clearHistoryBtn").addEventListener("click", ()=>{
+  if(sessions.length === 0) return;
+  if(confirm("Clear all saved CPR sessions? This can't be undone.")){
+    sessions = [];
+    saveSessions();
+    renderHistory();
+  }
+});
+
+/* ---------------- SETTINGS ---------------- */
+document.querySelectorAll('input[data-key]').forEach(input=>{
+  input.addEventListener("change", ()=>{
+    settings[input.dataset.key] = input.checked;
+    applySettingsToUI();
+    saveSettings();
+  });
+});
+document.getElementById("emergencyNumberInput").addEventListener("change", (e)=>{
+  const num = e.target.value.trim() || "67";
+  settings.emergencyNumber = num;
+  document.getElementById("emergencyBtn").href = "tel:" + num;
+  saveSettings();
+});
+function applySettingsToUI(){
+  document.body.classList.toggle("dark", settings.dark);
+  document.body.classList.toggle("high-contrast", settings.highContrast);
+  document.documentElement.classList.toggle("large-text", settings.largeText);
+  document.getElementById("emergencyBtn").href = "tel:" + (settings.emergencyNumber || "67");
+  document.getElementById("emergencyNumberInput").value = settings.emergencyNumber || "67";
+  document.querySelectorAll('input[data-key]').forEach(input=>{
+    input.checked = !!settings[input.dataset.key];
+  });
+}
+function speak(text){
+  if(!("speechSynthesis" in window)) return;
+  try{
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1;
+    window.speechSynthesis.speak(utter);
+  }catch(e){ /* speech unavailable — silently ignore */ }
+}
+
+/* ---------------- INIT ---------------- */
+renderGuide();
+loadData();
+</script>
+</body>
+</html>
